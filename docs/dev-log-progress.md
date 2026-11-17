@@ -17,6 +17,8 @@ For each small feature, follow this cycle:
 4. Test and review it, comparing alternatives.
 5. Commit a meaningful milestone and record what I learned.
 
+For **every exercise**, keep the relevant documentation links next to the exercise (not only in a reference list at the end). Include a brief **“What to look for”** note so I can return to the source and find the concept independently. Prefer the official Scala 3 Book and link to a specific section whenever possible; use official tool documentation for setup exercises. Only record an implementation as complete after I have written and checked it.
+
 We use four recurring design questions:
 
 | Foundation | Question |
@@ -58,6 +60,13 @@ dev-log/
 ```
 
 The `../src/test/scala` directory can be added or used when we begin unit testing. Empty directories do not appear in Git commits.
+
+### Related documentation
+
+- [The Book of sbt — Getting Started](https://www.scala-sbt.org/2.x/docs/en/guide/index.html) — sbt project structure, build definitions and commands.
+- [Scala 3 Book — Main Methods](https://docs.scala-lang.org/scala3/book/methods-main-methods.html) — how a Scala program starts.
+
+**What to look for:** How `build.sbt`, `project/build.properties` and the application's entry point have different jobs.
 
 ## 3. First data model — completed
 
@@ -102,6 +111,13 @@ A regular `class` can be appropriate for other kinds of objects, but these featu
 
 **Important future distinction:** Two entries with identical fields compare equal as case-class values, but they might eventually be two distinct saved records. We will revisit **value equality vs record identity** when introducing IDs and persistence.
 
+### Related documentation
+
+- [Scala 3 Book — Case Classes](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#case-classes) — generated methods, equality, `copy()` and constructor fields.
+- [Scala 3 Book — Working with Sets](https://docs.scala-lang.org/scala3/book/collections-classes.html#working-with-sets) — why `Set` stores unique elements.
+
+**What to look for:** Identify which case-class features Scala generates for us, and why `tags` is a `Set[String]` rather than a `List[String]`.
+
 ## 4. Immutability and `copy()` — completed experiment
 
 We experimented with:
@@ -119,6 +135,13 @@ Correct predictions:
 - `entry == updatedEntry` is `false` when their tags differ.
 
 **Lesson:** Immutability does not mean the application cannot represent changes. Instead of changing an existing value, we create a new value with the updated state.
+
+### Related documentation
+
+- [Scala 3 Book — Immutable Values](https://docs.scala-lang.org/scala3/book/fp-immutable-values.html) — case classes and the “update as you copy” pattern.
+- [Scala 3 Book — Adding elements to a Set](https://docs.scala-lang.org/scala3/book/collections-classes.html#adding-elements-to-a-set) — returning a new immutable collection with `+`.
+
+**What to look for:** Which value is unchanged after `copy()`, and which operation produces a new `Set`?
 
 ## 5. Moving behaviour into the model — implemented
 
@@ -173,6 +196,14 @@ object DevLogService {
 
 **Status clarification:** We discussed `DevLogService` as an alternative and showed how to write it. We have not established that it was added to the repository, and we do not need it yet.
 
+### Related documentation
+
+- [Scala 3 Book — Methods](https://docs.scala-lang.org/scala3/book/taste-methods.html) — methods inside case classes and other types.
+- [Scala 3 Book — Fields and methods](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#fields-and-methods) — instance behaviour in a class body.
+- [Scala 3 Book — Singleton Objects](https://docs.scala-lang.org/scala3/book/taste-objects.html) — the alternative of placing methods in an `object`.
+
+**What to look for:** Where a method can be declared and how an instance method differs from a method in a singleton object. Keeping `addTag` on `DevLogEntry` is **our design decision**, not a rule imposed by these docs.
+
 ## 6. What to learn now vs later
 
 ### Must know
@@ -216,14 +247,21 @@ After reviewing that implementation, investigate **companion objects versus inst
 
 No new commit is required for each tiny experiment; commit after a coherent, reviewed milestone.
 
-## 8. Official Scala documentation
+### Related documentation
+
+- [Scala 3 Book — Deleting elements from a Set](https://docs.scala-lang.org/scala3/book/collections-classes.html#deleting-elements-from-a-set) — find the operation for removing an element from an immutable `Set`.
+- [Scala 3 Book — Immutable Values](https://docs.scala-lang.org/scala3/book/fp-immutable-values.html) — revisit how to return an updated case-class value without changing the original.
+
+**What to look for:** How the collection operation behaves and how `copy()` preserves the original entry. Read these sections before choosing your implementation; the exercise is intentionally left unsolved here.
+
+## 8. Official Scala documentation — quick reference
 
 - [Scala 3 Book — Case Classes](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#case-classes)
 - [Scala 3 Book — Methods](https://docs.scala-lang.org/scala3/book/taste-methods.html)
 - [Scala 3 Book — Singleton Objects](https://docs.scala-lang.org/scala3/book/taste-objects.html)
 - [Scala 3 Book — Collections](https://docs.scala-lang.org/scala3/book/collections-classes.html)
 
-**How to use these docs:** Start from the part relevant to the feature we're building. Read enough to answer a concrete question; come back later for advanced details.
+**How to use these docs:** The links above each exercise are the starting point. Read only enough to answer that exercise's question, then use this list as a wider reference. When we add a future exercise, record its direct documentation links and “What to look for” note alongside its implementation.
 
 ---
 
