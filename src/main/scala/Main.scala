@@ -9,6 +9,19 @@ object Main {
       tags = Set("Scala", "Git")
     )
 
-    println(entry)
+    val updatedEntry = entry.copy(
+      tags = entry.tags + "GitHub"
+    )
+
+    val updatedEntryWithFunction = entry.addTag("new")
+    val updatedEntryWithFunction2 = updatedEntryWithFunction.addTag("new")
+
+    val resultB = DevLogService.addTag(entry, "late")
+
+    println(entry.tags)
+    println(updatedEntryWithFunction.tags)
+    println(updatedEntryWithFunction2.tags)
+    println(resultB.tags)
+    print(entry == updatedEntry)
   }
 }
