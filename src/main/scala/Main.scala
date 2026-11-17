@@ -8,20 +8,30 @@ object Main {
       date = LocalDate.now(),
       tags = Set("Scala", "Git")
     )
+    
+    val updatedEntry = entry.addTag("GitHub")
+    val updated = entry.removeTag("Git")
+    val empty = updated.removeTag("Scala")
+    val unchanged = entry.removeTag("new")
 
-    val updatedEntry = entry.copy(
-      tags = entry.tags + "GitHub"
-    )
+    // Test original entry
+    assert(entry.tags == Set("Scala", "Git"))
 
-    val updatedEntryWithFunction = entry.addTag("new")
-    val updatedEntryWithFunction2 = updatedEntryWithFunction.addTag("new")
+    // Test adding a tag
+    assert(updatedEntry.tags == Set("Scala", "Git", "GitHub"))
 
-    val resultB = DevLogService.addTag(entry, "late")
+    // Test removing a tag
+    assert(updated.tags == Set("Scala"))
 
-    println(entry.tags)
-    println(updatedEntryWithFunction.tags)
-    println(updatedEntryWithFunction2.tags)
-    println(resultB.tags)
-    print(entry == updatedEntry)
+    // Test removing all tags
+    assert(empty.tags == Set.empty[String])
+
+    // Test removing a non-existing tag
+    assert(unchanged == entry)
+
+    // Test original entry remains unchanged
+    assert(entry.tags == Set("Scala", "Git"))
+
+    println("All assertions passed!")
   }
 }

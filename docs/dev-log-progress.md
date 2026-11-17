@@ -17,7 +17,7 @@ For each small feature, follow this cycle:
 4. Test and review it, comparing alternatives.
 5. Commit a meaningful milestone and record what I learned.
 
-For **every exercise**, keep the relevant documentation links next to the exercise (not only in a reference list at the end). Include a brief **“What to look for”** note so I can return to the source and find the concept independently. Prefer the official Scala 3 Book and link to a specific section whenever possible; use official tool documentation for setup exercises. Only record an implementation as complete after I have written and checked it.
+For **every exercise**, keep the relevant documentation links next to the exercise (not only in a reference list at the end). Include a brief **“What to look for”** note so I can return to the source and find the concept independently. Prefer the official Scala 3 Book and link to a specific section whenever possible; use official tool documentation for setup exercises. Only record an implementation as complete after I have written and checked it. Distinguish a code-review pass from a build or test run that has been verified locally.
 
 We use four recurring design questions:
 
@@ -56,7 +56,8 @@ dev-log/
     └── main/
         └── scala/
             ├── Main.scala
-            └── DevLogEntry.scala
+            ├── DevLogEntry.scala
+            └── DevLogService.scala
 ```
 
 The `../src/test/scala` directory can be added or used when we begin unit testing. Empty directories do not appear in Git commits.
@@ -136,6 +137,8 @@ Correct predictions:
 
 **Lesson:** Immutability does not mean the application cannot represent changes. Instead of changing an existing value, we create a new value with the updated state.
 
+**`val` clarification (17 November 2026):** `val entry` prevents assigning a different value to the variable `entry`, but `val` alone does not make a referenced object deeply immutable. Here, case-class parameters are `val` by default, `tags` is an immutable `Set[String]`, and `copy()` creates a new entry rather than changing the existing one.
+
 ### Related documentation
 
 - [Scala 3 Book — Immutable Values](https://docs.scala-lang.org/scala3/book/fp-immutable-values.html) — case classes and the “update as you copy” pattern.
@@ -194,7 +197,7 @@ object DevLogService {
 
 **Decision for now:** Keep simple behaviour that only transforms the entry's own data in `DevLogEntry`. A service becomes more useful when an operation coordinates external dependencies or other responsibilities, for example saving an entry to a database. Just needing a `DevLogEntry` argument does *not*, by itself, prove that the method must be on the class.
 
-**Status clarification:** We discussed `DevLogService` as an alternative and showed how to write it. We have not established that it was added to the repository, and we do not need it yet.
+**Status clarification:** `DevLogService.scala` is present in the uploaded project ZIP, and it delegates to `entry.addTag(newTag)`. We can keep it as an example of a separate singleton object, but it is not required for this simple operation.
 
 ### Related documentation
 
@@ -211,6 +214,9 @@ object DevLogService {
 - What a `case class` provides automatically.
 - How value equality (`==`) works for case classes.
 - Why `copy()` plus immutable collections leaves the original unchanged.
+- How `Set` operators `+` (add) and `-` (remove) produce updated immutable collections.
+- The distinction between `val` and an immutable object or collection.
+- How simple `assert` checks verify expected behaviour and fail with `AssertionError` when a condition is false.
 - The difference between an **instance method** (`entry.addTag`) and a method on an **object** (`DevLogService.addTag`).
 - What `this` means inside an instance method.
 
@@ -227,34 +233,132 @@ object DevLogService {
 - Companion objects and factory methods.
 - Services, repositories and dependency injection.
 - Traits, composition and abstraction boundaries.
-- Automated testing and validation rules (for example, empty tags).
+- A dedicated test suite (for example, using a Scala testing framework) and validation rules (for example, empty tags).
 
-## 7. Next exercise — not yet completed
+## 7. Exercise 2 — immutable `removeTag` and `assert` checks (completed and reviewed)
 
-Implement a `removeTag` instance method on `DevLogEntry`:
+**Date reviewed:** 17 November 2026  
+**Code review:** Passed; the following was supplied in chat after the ZIP upload.  
+**Verification note:** The assertions are written and reviewed, but a successful local `sbt run` has not been confirmed in chat.  
+**Commit:** Ready to make; not yet confirmed as pushed.
+
+### Problem and solution
+
+Remove a tag while preserving the original entry. A nonexistent tag should be harmless; it should leave the set's elements unchanged.
 
 ```scala
-def removeTag(tag: String): DevLogEntry = ???
+def removeTag(tag: String): DevLogEntry =
+  this.copy(tags = this.tags - tag)
 ```
 
-Requirements:
+- `tags - tag` creates a Set without the specified element; it does not modify the original immutable Set.
+- `copy(tags = ...)` creates a new `DevLogEntry` and preserves `title`, `description` and `date`.
+- Removing a missing tag returns a Set with the same elements; no `if`, `Option` or exception handling is needed for this simple case.
+- Removing the last remaining tag produces `Set.empty[String]`.
 
-- Return a new `DevLogEntry` with the tag removed.
-- Keep the original entry unchanged.
-- Decide what should happen when the tag is not present.
+`addTag` remains:
 
-After reviewing that implementation, investigate **companion objects versus instance methods**. Then we can continue building toward storing and retrieving multiple entries.
+```scala
+def addTag(newTag: String): DevLogEntry =
+  this.copy(tags = this.tags + newTag)
+```
 
-No new commit is required for each tiny experiment; commit after a coherent, reviewed milestone.
+### Checking behaviour with `assert` in `Main.scala`
 
-### Related documentation
+The following is the test example I wrote. It checks the expected results automatically rather than relying only on printed output:
 
-- [Scala 3 Book — Deleting elements from a Set](https://docs.scala-lang.org/scala3/book/collections-classes.html#deleting-elements-from-a-set) — find the operation for removing an element from an immutable `Set`.
-- [Scala 3 Book — Immutable Values](https://docs.scala-lang.org/scala3/book/fp-immutable-values.html) — revisit how to return an updated case-class value without changing the original.
+```scala
+import java.time.LocalDate
 
-**What to look for:** How the collection operation behaves and how `copy()` preserves the original entry. Read these sections before choosing your implementation; the exercise is intentionally left unsolved here.
+object Main {
+  def main(args: Array[String]): Unit = {
+    val entry = DevLogEntry(
+      title = "My First Dev Log",
+      description = "Testing development across two Macs",
+      date = LocalDate.now(),
+      tags = Set("Scala", "Git")
+    )
 
-## 8. Official Scala documentation — quick reference
+    val updatedEntry = entry.addTag("GitHub")
+    val updated = entry.removeTag("Git")
+    val empty = updated.removeTag("Scala")
+    val unchanged = entry.removeTag("new")
+
+    // Original entry
+    assert(entry.tags == Set("Scala", "Git"))
+
+    // Add a new tag
+    assert(updatedEntry.tags == Set("Scala", "Git", "GitHub"))
+
+    // Remove an existing tag
+    assert(updated.tags == Set("Scala"))
+
+    // Remove the last tag
+    assert(empty.tags == Set.empty[String])
+
+    // Removing a missing tag preserves the value
+    assert(unchanged == entry)
+
+    // Original entry is still unchanged
+    assert(entry.tags == Set("Scala", "Git"))
+
+    println("All assertions passed!")
+  }
+}
+```
+
+### What is `assert`?
+
+`assert(condition)` verifies that a Boolean expression is `true`:
+
+```scala
+assert(updated.tags == Set("Scala"))
+```
+
+- If the condition is `true`, the program continues.
+- If it is `false`, `assert` throws an `AssertionError`; the success message at the end won't be reached.
+- These are useful **manual application checks**, not yet a dedicated automated test suite.
+- The two checks of `entry.tags` are intentionally redundant for learning: they reinforce that operations on copies have not changed the original.
+
+**Local verification to do before committing:** run `sbt run` and confirm the message `All assertions passed!` appears without errors. The chat review alone does not prove the code was executed.
+
+### Explanation in my own words
+
+> `entry.removeTag("Git")` returns a new copy with one fewer tag. The original `entry` is not modified. `val` prevents reassignment, while the immutable Set and the `copy()` operation are what give this example its immutable update behaviour.
+
+### Documentation
+
+- [Scala 3 Book — Deleting elements from a Set](https://docs.scala-lang.org/scala3/book/collections-classes.html#deleting-elements-from-a-set) — the `-` operation and Set behaviour.
+- [Scala 3 Book — Immutable Values](https://docs.scala-lang.org/scala3/book/fp-immutable-values.html) — creating updated copies without modifying the original.
+- [Scala 3 Book — Building and Testing with sbt](https://docs.scala-lang.org/scala3/book/tools-sbt.html) — examples of assertions in a test workflow and the next step beyond checks in `Main`.
+
+**What to look for:** Why `-` does not mutate an immutable Set; why `copy()` returns a new case-class instance; what `assert` does if a condition is false.
+
+### Commit milestone
+
+Planned commit message:
+
+```text
+feat: add immutable tag removal to DevLogEntry
+```
+
+Include the implementation, `Main.scala` checks and this progress note in the commit. Do not mark the commit as pushed until Git confirms it.
+
+## 8. Next topic — companion objects vs instance methods (not started)
+
+Now that `addTag` and `removeTag` both operate on a specific entry, explore how an **instance method** differs from a **companion object method**. This also builds on the existing `DevLogService` singleton example: a companion object specifically has the same name as its class or case class.
+
+Before implementing more code, consider which methods **change or inspect an existing entry** and which ones **create or validate a new entry**. We'll pick one small implementation exercise after reviewing that distinction.
+
+### Documentation
+
+- [Scala 3 Book — Companion Objects](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#companion-objects) — a class and object with the same name.
+- [Scala 3 Book — Singleton Objects](https://docs.scala-lang.org/scala3/book/taste-objects.html) — methods on an `object` rather than an instance.
+- [Scala 3 Book — Methods](https://docs.scala-lang.org/scala3/book/taste-methods.html) — methods and their placement.
+
+**What to look for:** The difference between calling `entry.addTag(...)`, `DevLogService.addTag(entry, ...)`, and a method on a companion `object DevLogEntry`. Focus on *where the method belongs* rather than memorising syntax.
+
+## 9. Official Scala documentation — quick reference
 
 - [Scala 3 Book — Case Classes](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#case-classes)
 - [Scala 3 Book — Methods](https://docs.scala-lang.org/scala3/book/taste-methods.html)
@@ -265,4 +369,4 @@ No new commit is required for each tiny experiment; commit after a coherent, rev
 
 ---
 
-**Current position:** Scala project set up and pushed; initial model committed; `addTag` implemented and reviewed in chat; `removeTag` is the next exercise.
+**Current position (17 November 2026):** Scala project set up and pushed; initial model committed; `addTag` implemented; `removeTag` and `assert` examples reviewed and ready for local verification and commit. Next topic: companion objects versus instance methods.

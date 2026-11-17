@@ -8,3 +8,5 @@ case class DevLogEntry(
                       ):
 
   def addTag(newTag: String): DevLogEntry = this.copy(tags = this.tags + newTag) 
+  
+  def removeTag(tag: String): DevLogEntry = this.copy(tags = this.tags - tag )
