@@ -7,6 +7,10 @@ case class DevLogEntry(
                         tags: Set[String]
                       ):
 
-  def addTag(newTag: String): DevLogEntry = this.copy(tags = this.tags + newTag) 
-  
-  def removeTag(tag: String): DevLogEntry = this.copy(tags = this.tags - tag )
+  def addTag(newTag: String): DevLogEntry = this.copy(tags = this.tags + newTag)
+
+  def removeTag(tag: String): DevLogEntry = this.copy(tags = this.tags - tag)
+
+object DevLogEntry:
+  def create(title: String, description: String, date: LocalDate): DevLogEntry =
+    DevLogEntry(title, description, date, Set.empty[String])

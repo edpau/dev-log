@@ -2,7 +2,7 @@
 
 **Project:** `dev-log`  
 **Language:** Scala 3  
-**Last updated:** 17 November 2026  
+**Last updated:** 18 November 2026  
 **Purpose:** Build a useful development log while learning Scala design and experimenting with human–AI pair programming.
 
 ## 1. Our development approach
@@ -219,6 +219,8 @@ object DevLogService {
 - How simple `assert` checks verify expected behaviour and fail with `AssertionError` when a condition is false.
 - The difference between an **instance method** (`entry.addTag`) and a method on an **object** (`DevLogService.addTag`).
 - What `this` means inside an instance method.
+- The distinction between an instance method, singleton object, and companion object.
+- Why validation only inside a factory can be bypassed by another public construction path.
 
 ### Good to know
 
@@ -226,14 +228,16 @@ object DevLogService {
 - Why explicit return types improve method readability.
 - How methods can delegate to one another without duplicating logic.
 - Why behaviour working solely on an entry's data may belong on the entry itself.
+- Why a companion factory can supply default values and why constructor defaults may sometimes be simpler.
+- How Scala 3 infers a return type, and why an explicit return type on a public method can help readers.
 
 ### Revisit later
 
 - Value equality vs persistent record identity and unique IDs.
-- Companion objects and factory methods.
+- Factories that enforce construction rules, and alternative ways of designing creation APIs.
 - Services, repositories and dependency injection.
 - Traits, composition and abstraction boundaries.
-- A dedicated test suite (for example, using a Scala testing framework) and validation rules (for example, empty tags).
+- A dedicated test suite (for example, using a Scala testing framework) and validation rules (for example, empty titles).
 
 ## 7. Exercise 2 — immutable `removeTag` and `assert` checks (completed and reviewed)
 
@@ -344,21 +348,138 @@ feat: add immutable tag removal to DevLogEntry
 
 Include the implementation, `Main.scala` checks and this progress note in the commit. Do not mark the commit as pushed until Git confirms it.
 
-## 8. Next topic — companion objects vs instance methods (not started)
+## 8. Exercise 3 — companion-object factory and assertions (implemented and reviewed)
 
-Now that `addTag` and `removeTag` both operate on a specific entry, explore how an **instance method** differs from a **companion object method**. This also builds on the existing `DevLogService` singleton example: a companion object specifically has the same name as its class or case class.
+**Date reviewed:** 18 November 2026  
+**Code review:** Passed for the submitted implementation and updated assertions.  
+**Local verification:** Not confirmed in chat; run `sbt run` and check for `All assertions passed!`.  
+**Commit/push:** Proposed below; not yet confirmed.
 
-Before implementing more code, consider which methods **change or inspect an existing entry** and which ones **create or validate a new entry**. We'll pick one small implementation exercise after reviewing that distinction.
+### Problem
+
+Create a new Dev Log entry with an empty tag set without making every caller supply `Set.empty[String]`. This lets us compare methods on an existing instance with a method on its companion object.
+
+### Implementation — `DevLogEntry.scala`
+
+```scala
+import java.time.LocalDate
+
+case class DevLogEntry(
+    title: String,
+    description: String,
+    date: LocalDate,
+    tags: Set[String]
+):
+  def addTag(newTag: String): DevLogEntry =
+    this.copy(tags = this.tags + newTag)
+
+  def removeTag(tag: String): DevLogEntry =
+    this.copy(tags = this.tags - tag)
+
+object DevLogEntry:
+  def create(title: String, description: String, date: LocalDate): DevLogEntry =
+    DevLogEntry(title, description, date, Set.empty[String])
+```
+
+The implementation has an explicit `: DevLogEntry` result type. `create` is on the **companion object** (`object DevLogEntry`), while `addTag` and `removeTag` remain **instance methods**. The factory adds a convenient creation path; it does not disable the case class's generated `apply` constructor.
+
+### Checks — `Main.scala`
+
+My latest exercise solution uses:
+
+```scala
+import java.time.LocalDate
+
+object Main {
+  def main(args: Array[String]): Unit = {
+    val entry = DevLogEntry.create(
+      "Learning Scala",
+      "Understanding companion objects",
+      LocalDate.now()
+    )
+
+    val updated = entry.addTag("Scala")
+
+    assert(entry.title == "Learning Scala")
+    assert(entry.description == "Understanding companion objects")
+    assert(entry.tags.isEmpty)
+
+    assert(updated.tags == Set("Scala"))
+    assert(entry.tags.isEmpty)
+
+    println("All assertions passed!")
+  }
+}
+```
+
+These checks cover the title, description, initial empty tags, successful addition of a tag, and the original entry remaining unchanged. **They do not yet explicitly assert the date**; if that becomes important, capture `LocalDate.now()` in a variable, pass it to `create`, and assert `entry.date == thatDate`. No local execution result has been reported.
+
+### Design discussion — the trade-off I noticed
+
+> If we know a new Dev Log should start with no tags, the factory saves us from repeatedly passing an empty Set. But our `create` method cannot accept initial tags, so it is less flexible for that use case.
+
+That is correct **for the current `create` signature**. Callers may still use the generated case-class constructor to supply tags directly. An alternative would be to give `tags` a default value in the case-class constructor:
+
+```scala
+case class DevLogEntry(
+    title: String,
+    description: String,
+    date: LocalDate,
+    tags: Set[String] = Set.empty[String]
+)
+```
+
+Default arguments can make the simple creation case more flexible, without a separate custom `create` method. **This was discussed as an alternative; it has not been implemented in the submitted solution.**
+
+### Design discussion — where should validation live?
+
+My answer to the follow-up design question was:
+
+> Put a rule such as "the title must not be empty" in the case class, because a caller can bypass validation in `create` by using the generated case-class `apply` method directly.
+
+This reasoning is sound. With a public case-class constructor, a check only in the factory does not protect every construction path. A possible **future exercise** is a class-body invariant using `require`, such as `require(title.trim.nonEmpty, "Title must not be empty")`, which would run when instances are constructed through the public constructor, generated `apply`, or `copy`. **No validation rule has been added yet.** We should also discuss when throwing an exception is appropriate versus returning a validation result.
+
+### Must know / Good to know / Revisit later
+
+- **Must know:** An instance method works on one entry; a companion object is a singleton with the same name as its class, declared alongside it; the case-class constructor remains available even after adding `create`.
+- **Good to know:** A companion factory can apply standard initial values; constructor default parameters may be simpler; public methods can state their return type explicitly.
+- **Revisit later:** Invariants with `require`, validation errors as `Either`, controlled constructors, proper automated unit tests, and record identity.
 
 ### Documentation
 
-- [Scala 3 Book — Companion Objects](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#companion-objects) — a class and object with the same name.
-- [Scala 3 Book — Singleton Objects](https://docs.scala-lang.org/scala3/book/taste-objects.html) — methods on an `object` rather than an instance.
-- [Scala 3 Book — Methods](https://docs.scala-lang.org/scala3/book/taste-methods.html) — methods and their placement.
+- [Scala 3 Book — Companion Objects](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#companion-objects) — companion object naming and the relationship to the class.
+- [Scala 3 Book — Singleton Objects](https://docs.scala-lang.org/scala3/book/taste-objects.html) — why `object` methods do not require a separate instance.
+- [Scala 3 Book — Methods](https://docs.scala-lang.org/scala3/book/taste-methods.html) — methods on classes and objects.
+- [Scala 3 Book — Default Parameter Values](https://docs.scala-lang.org/scala3/book/methods-most.html#default-parameter-values) — an alternative to a factory for an optional initial tag set.
+- [Scala 3 Book — Case Classes](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#case-classes) — generated construction and `copy()` behaviour.
 
-**What to look for:** The difference between calling `entry.addTag(...)`, `DevLogService.addTag(entry, ...)`, and a method on a companion `object DevLogEntry`. Focus on *where the method belongs* rather than memorising syntax.
+**What to look for:** Identify which call uses an existing `entry`, which call creates a new entry using `DevLogEntry.create(...)`, and which call uses the case class's generated `DevLogEntry(...)`. Notice that a convenient factory does not automatically enforce a rule on every construction path.
 
-## 9. Official Scala documentation — quick reference
+### Suggested Git milestone
+
+After verifying the code locally, commit the companion factory, updated `Main.scala` assertions, and the progress notes with:
+
+```text
+feat: add companion factory for dev log entries
+```
+
+Only record this as committed and pushed after Git confirms it. The earlier Exercise 2 commit is still unconfirmed in the supplied notes; verify Git history rather than assuming it was pushed.
+
+## 9. Next exercise — validate a Dev Log title (not started)
+
+**Candidate goal:** Prevent creation of a `DevLogEntry` with a blank title regardless of whether callers use `DevLogEntry(...)`, `DevLogEntry.create(...)`, or `entry.copy(...)`.
+
+Before writing code, decide what counts as invalid (`""`, spaces, etc.), whether the API should **throw** (`require`) or **return a value describing failure** (`Either`), and where the invariant should be enforced. Keep this next exercise small and avoid adding rules that have not yet been discussed.
+
+### Documentation
+
+- [Scala 3 Book — Case Classes](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#case-classes) — constructing and copying case-class values.
+- [Scala 3 Book — Companion Objects](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#companion-objects) — factory methods versus construction paths.
+- [Scala Standard Library — Predef.require](https://www.scala-lang.org/api/3.x/scala/Predef$.html) — assertions for conditions that callers must meet; inspect the `require` methods.
+
+**What to look for:** Ask whether a rule written only in `create` would still run when a caller writes `DevLogEntry(...)` or `entry.copy(...)`.
+
+## 10. Official Scala documentation — quick reference
 
 - [Scala 3 Book — Case Classes](https://docs.scala-lang.org/scala3/book/domain-modeling-tools.html#case-classes)
 - [Scala 3 Book — Methods](https://docs.scala-lang.org/scala3/book/taste-methods.html)
@@ -369,4 +490,4 @@ Before implementing more code, consider which methods **change or inspect an exi
 
 ---
 
-**Current position (17 November 2026):** Scala project set up and pushed; initial model committed; `addTag` implemented; `removeTag` and `assert` examples reviewed and ready for local verification and commit. Next topic: companion objects versus instance methods.
+**Current position (18 November 2026):** Scala project set up and initially pushed; `addTag`/`removeTag` implemented; Exercise 3 companion-object `create` and its expanded assertions reviewed. Local `sbt run` and Exercise 3 commit/push remain unconfirmed. Next candidate exercise: enforcing a nonblank title across all construction paths.
